@@ -17,6 +17,7 @@ from datetime import datetime, timedelta
 from chromadb.utils.embedding_functions import (
     DefaultEmbeddingFunction,
 )
+from chromadb.api.configuration import CollectionConfiguration, HNSWConfiguration
 
 persist_dir = tempfile.mkdtemp()
 
@@ -1224,7 +1225,11 @@ def test_index_params(client):
     client.reset()
     collection = client.create_collection(
         name="test_index_params",
-        metadata={"hnsw:space": "cosine", "hnsw:construction_ef": 20, "hnsw:M": 5},
+        configuration=CollectionConfiguration(
+            hnsw_configuration=HNSWConfiguration(
+                space="cosine", ef_construction=20, M=5
+            )
+        ),
     )
     collection.add(**records)
     items = collection.query(
@@ -1237,7 +1242,10 @@ def test_index_params(client):
     # ip
     client.reset()
     collection = client.create_collection(
-        name="test_index_params", metadata={"hnsw:space": "ip"}
+        name="test_index_params",
+        configuration=CollectionConfiguration(
+            hnsw_configuration=HNSWConfiguration(space="ip")
+        ),
     )
     collection.add(**records)
     items = collection.query(

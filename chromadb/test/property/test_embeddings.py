@@ -8,6 +8,7 @@ import hypothesis.strategies as st
 from hypothesis import given, settings, HealthCheck
 from typing import Dict, Set, cast, Union, DefaultDict, Any, List
 from dataclasses import dataclass
+from chromadb.api.configuration import CollectionConfiguration, HNSWConfiguration
 from chromadb.api.types import ID, Embeddings, Include, IDs, validate_embeddings
 import chromadb.errors as errors
 from chromadb.api import ClientAPI
@@ -50,11 +51,11 @@ def print_traces() -> None:
         print(f"{key}: {value}")
 
 
-dtype_shared_st: st.SearchStrategy[  # type: ignore[type-arg]
+dtype_shared_st: st.SearchStrategy[
     Union[np.float16, np.float32, np.float64]
 ] = st.shared(st.sampled_from(strategies.float_types), key="dtype")
 
-dimension_shared_st: st.SearchStrategy[int] = st.shared(  # type: ignore[type-arg]
+dimension_shared_st: st.SearchStrategy[int] = st.shared(
     st.integers(min_value=2, max_value=2048), key="dimension"
 )
 
@@ -73,7 +74,7 @@ collection_st = st.shared(strategies.collections(with_hnsw_params=True), key="co
 
 class EmbeddingStateMachineBase(RuleBasedStateMachine):
     collection: Collection
-    embedding_ids: Bundle[ID] = Bundle("embedding_ids")  # type: ignore[type-arg]
+    embedding_ids: Bundle[ID] = Bundle("embedding_ids")
 
     def __init__(self, client: ClientAPI):
         super().__init__()
@@ -85,6 +86,7 @@ class EmbeddingStateMachineBase(RuleBasedStateMachine):
         reset(self.client)
         self.collection = self.client.create_collection(
             name=collection.name,
+            configuration=collection.configuration,
             metadata=collection.metadata,  # type: ignore[arg-type]
             embedding_function=collection.embedding_function,
         )
@@ -104,7 +106,7 @@ class EmbeddingStateMachineBase(RuleBasedStateMachine):
         target=embedding_ids,
         record_set=strategies.recordsets(collection_st),
     )
-    def add_embeddings(self, record_set: strategies.RecordSet) -> MultipleResults[ID]:  # type: ignore[type-arg]
+    def add_embeddings(self, record_set: strategies.RecordSet) -> MultipleResults[ID]:
         trace("add_embeddings")
         self.on_state_change(EmbeddingStateMachineStates.add_embeddings)
 
@@ -301,7 +303,8 @@ class EmbeddingStateMachineBase(RuleBasedStateMachine):
 
 
 class EmbeddingStateMachine(EmbeddingStateMachineBase):
-    embedding_ids: Bundle[ID] = Bundle("embedding_ids")  # type: ignore[type-arg]
+    embedding_ids: Bundle[ID] = Bundle("embedding_ids")
+    collection_version: int
 
     def __init__(self, client: ClientAPI):
         super().__init__(client)
@@ -315,7 +318,7 @@ class EmbeddingStateMachine(EmbeddingStateMachineBase):
         )
         self.log_operation_count = 0
         self.unique_ids_in_log: Set[ID] = set()
-        self.collection_version = self.collection.get_model()["version"]
+        self.collection_version = cast(int, self.collection.get_model()["version"])
 
     @precondition(
         lambda self: not NOT_CLUSTER_ONLY
@@ -353,7 +356,7 @@ class EmbeddingStateMachine(EmbeddingStateMachineBase):
         target=embedding_ids,
         record_set=strategies.recordsets(collection_st),
     )
-    def add_embeddings(self, record_set: strategies.RecordSet) -> MultipleResults[ID]:  # type: ignore[type-arg]
+    def add_embeddings(self, record_set: strategies.RecordSet) -> MultipleResults[ID]:
         res = super().add_embeddings(record_set)
         normalized_record_set: strategies.NormalizedRecordSet = invariants.wrap_all(
             record_set
@@ -368,7 +371,7 @@ class EmbeddingStateMachine(EmbeddingStateMachineBase):
         for id in normalized_record_set["ids"]:
             if id not in self.unique_ids_in_log:
                 self.unique_ids_in_log.add(id)
-        return res
+        return res  # type: ignore[return-value]
 
     @rule(ids=st.lists(consumes(embedding_ids), min_size=1))
     def delete_by_ids(self, ids: IDs) -> None:
@@ -440,11 +443,12 @@ def test_add_then_delete_n_minus_1(client: ClientAPI) -> None:
     state.initialize(
         collection=strategies.Collection(
             name="A00",
-            metadata={
-                "hnsw:construction_ef": 128,
-                "hnsw:search_ef": 128,
-                "hnsw:M": 128,
-            },
+            configuration=CollectionConfiguration(
+                hnsw_configuration=HNSWConfiguration(
+                    ef_construction=128, ef_search=128, M=128
+                )
+            ),
+            metadata=None,
             embedding_function=None,
             id=uuid.uuid4(),
             dimension=2,
@@ -459,7 +463,7 @@ def test_add_then_delete_n_minus_1(client: ClientAPI) -> None:
     state.count()
     state.fields_match()
     state.no_duplicates()
-    v1, v2, v3, v4, v5, v6 = state.add_embeddings(
+    v1, v2, v3, v4, v5, v6 = state.add_embeddings(  # type: ignore[misc]
         record_set={
             "ids": ["0", "1", "2", "3", "4", "5"],
             "embeddings": [
@@ -493,11 +497,12 @@ def test_update_none(caplog: pytest.LogCaptureFixture, client: ClientAPI) -> Non
     state.initialize(
         collection=strategies.Collection(
             name="A00",
-            metadata={
-                "hnsw:construction_ef": 128,
-                "hnsw:search_ef": 128,
-                "hnsw:M": 128,
-            },
+            configuration=CollectionConfiguration(
+                hnsw_configuration=HNSWConfiguration(
+                    ef_construction=128, ef_search=128, M=128
+                )
+            ),
+            metadata=None,
             embedding_function=None,
             id=uuid.UUID("2fb0c945-b877-42ab-9417-bfe0f6b172af"),
             dimension=2,
@@ -512,7 +517,7 @@ def test_update_none(caplog: pytest.LogCaptureFixture, client: ClientAPI) -> Non
     state.count()
     state.fields_match()
     state.no_duplicates()
-    v1, v2, v3, v4, v5 = state.add_embeddings(
+    v1, v2, v3, v4, v5 = state.add_embeddings(  # type: ignore[misc]
         record_set={
             "ids": ["0", "1", "2", "3", "4"],
             "embeddings": [
@@ -547,6 +552,11 @@ def test_add_delete_add(client: ClientAPI) -> None:
     state.initialize(
         collection=strategies.Collection(
             name="KR3cf",
+            configuration=CollectionConfiguration(
+                hnsw_configuration=HNSWConfiguration(
+                    ef_construction=128, ef_search=128, M=128
+                )
+            ),
             metadata={
                 "Ufmxsi3": 999999.0,
                 "bMMvvrqM4MKmp5CJB8A": 62921,
@@ -561,9 +571,6 @@ def test_add_delete_add(client: ClientAPI) -> None:
                 "R0ZiZ": True,
                 "m": True,
                 "IOw": -25725,
-                "hnsw:construction_ef": 128,
-                "hnsw:search_ef": 128,
-                "hnsw:M": 128,
             },
             embedding_function=None,
             id=uuid.UUID("284b6e99-b19e-49b2-96a4-a2a93a95447d"),

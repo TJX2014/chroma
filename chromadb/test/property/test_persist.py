@@ -10,6 +10,7 @@ import hypothesis.strategies as st
 import pytest
 import chromadb
 from chromadb.api import ClientAPI, ServerAPI
+from chromadb.api.configuration import CollectionConfiguration, HNSWConfiguration
 from chromadb.config import Settings, System
 from chromadb.segment import SegmentManager, VectorReader
 import chromadb.test.property.strategies as strategies
@@ -88,11 +89,12 @@ def test_persist(
     client_1.reset()
     coll = client_1.create_collection(
         name=collection_strategy.name,
+        configuration=collection_strategy.configuration,
         metadata=collection_strategy.metadata,  # type: ignore[arg-type]
         embedding_function=collection_strategy.embedding_function,
     )
 
-    coll.add(**embeddings_strategy)
+    coll.add(**embeddings_strategy)  # type: ignore[arg-type]
 
     invariants.count(coll, embeddings_strategy)
     invariants.metadatas_match(coll, embeddings_strategy)
@@ -137,7 +139,10 @@ def test_sync_threshold(settings: Settings) -> None:
     client = ClientCreator.from_system(system)
 
     collection = client.create_collection(
-        name="test", metadata={"hnsw:batch_size": 3, "hnsw:sync_threshold": 3}
+        name="test",
+        configuration=CollectionConfiguration(
+            hnsw_configuration=HNSWConfiguration(batch_size=3, sync_threshold=3)
+        ),
     )
 
     manager = system.instance(SegmentManager)
@@ -153,37 +158,37 @@ def test_sync_threshold(settings: Settings) -> None:
 
     last_modified_at = get_index_last_modified_at()
 
-    collection.add(ids=["1", "2"], embeddings=[[1.0], [2.0]])
+    collection.add(ids=["1", "2"], embeddings=[[1.0], [2.0]])  # type: ignore[arg-type]
 
     # Should not have yet persisted
     assert get_index_last_modified_at() == last_modified_at
     last_modified_at = get_index_last_modified_at()
 
     # Now there's 3 additions, and the sync threshold is 3...
-    collection.add(ids=["3"], embeddings=[[3.0]])
+    collection.add(ids=["3"], embeddings=[[3.0]])  # type: ignore[arg-type]
 
     # ...so it should have persisted
     assert get_index_last_modified_at() > last_modified_at
     last_modified_at = get_index_last_modified_at()
 
     # The same thing should happen with upserts
-    collection.upsert(ids=["1", "2", "3"], embeddings=[[1.0], [2.0], [3.0]])
+    collection.upsert(ids=["1", "2", "3"], embeddings=[[1.0], [2.0], [3.0]])  # type: ignore[arg-type]
 
     # Should have persisted
     assert get_index_last_modified_at() > last_modified_at
     last_modified_at = get_index_last_modified_at()
 
     # Mixed usage should also trigger persistence
-    collection.add(ids=["4"], embeddings=[[4.0]])
-    collection.upsert(ids=["1", "2"], embeddings=[[1.0], [2.0]])
+    collection.add(ids=["4"], embeddings=[[4.0]])  # type: ignore[arg-type]
+    collection.upsert(ids=["1", "2"], embeddings=[[1.0], [2.0]])  # type: ignore[arg-type]
 
     # Should have persisted
     assert get_index_last_modified_at() > last_modified_at
     last_modified_at = get_index_last_modified_at()
 
     # Invalid updates should also trigger persistence
-    collection.add(ids=["5"], embeddings=[[5.0]])
-    collection.add(ids=["1", "2"], embeddings=[[1.0], [2.0]])
+    collection.add(ids=["5"], embeddings=[[5.0]])  # type: ignore[arg-type]
+    collection.add(ids=["1", "2"], embeddings=[[1.0], [2.0]])  # type: ignore[arg-type]
 
     # Should have persisted
     assert get_index_last_modified_at() > last_modified_at
@@ -251,6 +256,7 @@ class PersistEmbeddingsStateMachine(EmbeddingStateMachineBase):
         self.client.reset()
         self.collection = self.client.create_collection(
             name=collection.name,
+            configuration=collection.configuration,
             metadata=collection.metadata,  # type: ignore[arg-type]
             embedding_function=collection.embedding_function,
         )
@@ -315,14 +321,17 @@ def test_delete_add_after_persist(settings: Settings) -> None:
     state.initialize(
         collection=strategies.Collection(
             name="A00",
-            metadata={
-                "hnsw:construction_ef": 128,
-                "hnsw:search_ef": 128,
-                "hnsw:M": 128,
-                # Important: both batch_size and sync_threshold are 3
-                "hnsw:batch_size": 3,
-                "hnsw:sync_threshold": 3,
-            },
+            configuration=CollectionConfiguration(
+                hnsw_configuration=HNSWConfiguration(
+                    ef_construction=128,
+                    ef_search=128,
+                    M=128,
+                    # Important: both batch_size and sync_threshold are 3
+                    batch_size=3,
+                    sync_threshold=3,
+                )
+            ),
+            metadata=None,
             embedding_function=DefaultEmbeddingFunction(),  # type: ignore[arg-type]
             id=UUID("0851f751-2f11-4424-ab23-4ae97074887a"),
             dimension=2,

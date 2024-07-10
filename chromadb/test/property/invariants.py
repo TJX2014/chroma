@@ -1,4 +1,5 @@
 import math
+from chromadb.api.configuration import HNSWConfigurationInternal
 from chromadb.test.property.strategies import NormalizedRecordSet, RecordSet
 from typing import Callable, Optional, Tuple, Union, List, TypeVar, cast
 from typing_extensions import Literal
@@ -76,7 +77,7 @@ def _field_matches(
     The actual embedding field is equal to the expected field
     field_name: one of [documents, metadatas]
     """
-    result = collection.get(ids=normalized_record_set["ids"], include=[field_name])
+    result = collection.get(ids=normalized_record_set["ids"], include=[field_name])  # type: ignore[list-item]
     # The test_out_of_order_ids test fails because of this in test_add.py
     # Here we sort by the ids to match the input order
     embedding_id_to_index = {id: i for i, id in enumerate(normalized_record_set["ids"])}
@@ -168,7 +169,7 @@ def ann_accuracy(
     record_set: RecordSet,
     n_results: int = 1,
     min_recall: float = 0.99,
-    embedding_function: Optional[types.EmbeddingFunction] = None,
+    embedding_function: Optional[types.EmbeddingFunction] = None,  # type: ignore[type-arg]
     query_indices: Optional[List[int]] = None,
 ) -> None:
     """Validate that the API performs nearest_neighbor searches correctly"""
@@ -189,22 +190,31 @@ def ann_accuracy(
     # l2 is the default distance function
     distance_function = distance_functions.l2
     accuracy_threshold = 1e-6
-    assert collection.metadata is not None
     assert embeddings is not None
-    if "hnsw:space" in collection.metadata:
-        space = collection.metadata["hnsw:space"]
-        # TODO: ip and cosine are numerically unstable in HNSW.
-        # The higher the dimensionality, the more noise is introduced, since each float element
-        # of the vector has noise added, which is then subsequently included in all normalization calculations.
-        # This means that higher dimensions will have more noise, and thus more error.
-        assert all(isinstance(e, list) for e in embeddings)
-        dim = len(embeddings[0])
-        accuracy_threshold = accuracy_threshold * math.pow(10, int(math.log10(dim)))
 
-        if space == "cosine":
-            distance_function = distance_functions.cosine
-        if space == "ip":
-            distance_function = distance_functions.ip
+    hnsw_config: HNSWConfigurationInternal = cast(
+        HNSWConfigurationInternal,
+        (
+            collection.get_model()
+            .get_configuration()
+            .get_parameter("hnsw_configuration")
+            .value
+        ),
+    )
+
+    space = hnsw_config.get_parameter("space").value
+    # TODO: ip and cosine are numerically unstable in HNSW.
+    # The higher the dimensionality, the more noise is introduced, since each float element
+    # of the vector has noise added, which is then subsequently included in all normalization calculations.
+    # This means that higher dimensions will have more noise, and thus more error.
+    assert all(isinstance(e, list) for e in embeddings)
+    dim = len(embeddings[0])
+    accuracy_threshold = accuracy_threshold * math.pow(10, int(math.log10(dim)))
+
+    if space == "cosine":
+        distance_function = distance_functions.cosine
+    if space == "ip":
+        distance_function = distance_functions.ip
 
     # Perform exact distance computation
     query_embeddings = (
@@ -222,7 +232,7 @@ def ann_accuracy(
         query_embeddings=query_embeddings if have_embeddings else None,
         query_texts=query_documents if not have_embeddings else None,
         n_results=n_results,
-        include=["embeddings", "documents", "metadatas", "distances"],
+        include=["embeddings", "documents", "metadatas", "distances"],  # type: ignore[list-item]
     )
 
     assert query_results["distances"] is not None

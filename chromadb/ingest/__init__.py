@@ -42,7 +42,7 @@ class Producer(Component):
         pass
 
     @abstractmethod
-    def clean_log(self, collection_id: UUID) -> None:
+    def clean_log(self) -> None:
         pass
 
     @abstractmethod

@@ -80,7 +80,7 @@ class LogService(Producer, Consumer):
         if not self._running:
             raise RuntimeError("Component not running")
 
-        return self.submit_embeddings(collection_id, [embedding])[0]  # type: ignore
+        return self.submit_embeddings(collection_id, [embedding])[0]
 
     @trace_method("LogService.submit_embeddings", OpenTelemetryGranularity.ALL)
     @override
@@ -116,6 +116,7 @@ class LogService(Producer, Consumer):
     def subscribe(
         self,
         collection_id: UUID,
+        segment_id: UUID,
         consume_fn: ConsumerCallbackFn,
         start: Optional[SeqId] = None,
         end: Optional[SeqId] = None,

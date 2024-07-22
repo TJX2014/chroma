@@ -15,6 +15,7 @@ use arrow::array::{Array, Int32Array};
 use roaring::RoaringBitmap;
 use std::fmt::{Debug, Display};
 use thiserror::Error;
+use uuid::Uuid;
 
 #[derive(Debug, Error)]
 pub(crate) enum BlockfileError {
@@ -351,11 +352,11 @@ impl<
         }
     }
 
-    pub(crate) async fn load_blocks_for_keys(&self, prefixes: Vec<&str>, keys: Vec<K>) -> () {
+    pub(crate) fn get_block_ids_for_keys(&self, prefixes: &[&str], keys: &[u32]) -> Vec<Uuid> {
         match self {
-            BlockfileReader::MemoryBlockfileReader(reader) => unimplemented!(),
+            BlockfileReader::MemoryBlockfileReader(reader) => todo!(),
             BlockfileReader::ArrowBlockfileReader(reader) => {
-                reader.load_blocks_for_keys(prefixes, keys).await
+                reader.get_block_ids_for_keys(prefixes, keys)
             }
         }
     }

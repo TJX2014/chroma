@@ -2,14 +2,14 @@ use crate::blockstore::key::{CompositeKey, KeyWrapper};
 use crate::errors::ChromaError;
 use core::panic;
 use parking_lot::Mutex;
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap};
 use std::fmt::Debug;
 use std::sync::Arc;
 use uuid::Uuid;
 
 use super::block::delta::BlockDelta;
 use super::block::Block;
-use super::types::{ArrowReadableKey, ArrowWriteableKey, ArrowWriteableValue};
+use super::types::{ArrowReadableKey, ArrowWriteableKey};
 
 /// A sentinel blockfilekey wrapper to represent the start blocks range
 /// # Note

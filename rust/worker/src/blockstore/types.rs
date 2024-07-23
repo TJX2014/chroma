@@ -354,10 +354,26 @@ impl<
 
     pub(crate) fn get_block_ids_for_keys(&self, prefixes: &[&str], keys: &[u32]) -> Vec<Uuid> {
         match self {
-            BlockfileReader::MemoryBlockfileReader(reader) => todo!(),
+            BlockfileReader::MemoryBlockfileReader(reader) => unimplemented!(),
             BlockfileReader::ArrowBlockfileReader(reader) => {
                 reader.get_block_ids_for_keys(prefixes, keys)
             }
+        }
+    }
+
+    pub(crate) async fn prefetch_block(&self, block_id: Uuid) -> () {
+        match self {
+            BlockfileReader::MemoryBlockfileReader(reader) => unimplemented!(),
+            BlockfileReader::ArrowBlockfileReader(reader) => {
+                reader.get_block(block_id).await;
+            }
+        }
+    }
+
+    pub(crate) fn cached(&self, block_id: &Uuid) -> bool {
+        match self {
+            BlockfileReader::MemoryBlockfileReader(reader) => unimplemented!(),
+            BlockfileReader::ArrowBlockfileReader(reader) => reader.cached(block_id),
         }
     }
 }

@@ -828,4 +828,28 @@ impl RecordSegmentReader<'_> {
         self.id_to_user_id
             .get_block_ids_for_keys(&prefixes[..], keys)
     }
+
+    pub(crate) async fn prefetch_block_for_id_to_data(&self, block_id: Uuid) -> () {
+        self.id_to_data.prefetch_block(block_id).await;
+    }
+
+    pub(crate) async fn prefetch_block_for_id_to_user_id(&self, block_id: Uuid) -> () {
+        self.id_to_user_id.prefetch_block(block_id).await;
+    }
+
+    pub(crate) async fn prefetch_block_for_user_id_to_id(&self, block_id: Uuid) -> () {
+        self.user_id_to_id.prefetch_block(block_id).await;
+    }
+
+    pub(crate) fn cached_id_to_data(&self, block_id: &Uuid) -> bool {
+        self.id_to_data.cached(block_id)
+    }
+
+    pub(crate) fn cached_id_to_user_id(&self, block_id: &Uuid) -> bool {
+        self.id_to_user_id.cached(block_id)
+    }
+
+    pub(crate) fn cached_user_id_to_id(&self, block_id: &Uuid) -> bool {
+        self.user_id_to_id.cached(block_id)
+    }
 }

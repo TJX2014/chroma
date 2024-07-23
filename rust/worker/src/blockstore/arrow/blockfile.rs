@@ -252,7 +252,7 @@ impl<'me, K: ArrowReadableKey<'me> + Into<KeyWrapper>, V: ArrowReadableValue<'me
         }
     }
 
-    pub(super) async fn get_block(&self, block_id: Uuid) -> Option<&Block> {
+    pub(crate) async fn get_block(&self, block_id: Uuid) -> Option<&Block> {
         if !self.loaded_blocks.lock().contains_key(&block_id) {
             let block = self.block_manager.get(&block_id).await?;
             self.loaded_blocks.lock().insert(block_id, Box::new(block));
@@ -272,6 +272,10 @@ impl<'me, K: ArrowReadableKey<'me> + Into<KeyWrapper>, V: ArrowReadableValue<'me
         }
 
         None
+    }
+
+    pub(crate) fn cached(&self, block_id: &Uuid) -> bool {
+        self.loaded_blocks.lock().contains_key(block_id) || self.block_manager.cached(block_id)
     }
 
     pub(crate) fn get_block_ids_for_keys(&self, prefixes: &[&str], keys: &[u32]) -> Vec<Uuid> {
